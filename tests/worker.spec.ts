@@ -222,6 +222,29 @@ describe("board actions", () => {
   });
 });
 
+describe("attachment links", () => {
+  it("links uploaded files above the schedule, images inline", async () => {
+    const h = await setup([issue("t1", { assigneeAgentId: "a-manitas", description: `Do it.\n\nstart-at: ${FUTURE}` })]);
+    await h.performAction(
+      "add-attachment-links",
+      { issueId: "t1", files: [{ name: "shot.png", path: "/api/attachments/a1/content", image: true }, { name: "notes [v2].txt", path: "/api/attachments/a2/content", image: false }] },
+      asBoard,
+    );
+    const t1 = await get(h, "t1");
+    expect(t1.description).toBe(
+      `Do it.\n\n**Attachments**\n\n- ![shot.png](/api/attachments/a1/content)\n- [notes  v2 .txt](/api/attachments/a2/content)\n\nstart-at: ${FUTURE}`,
+    );
+    expect(t1.status).toBe("backlog");
+  });
+
+  it("refuses links that are not Paperclip API paths", async () => {
+    const h = await setup([issue("t1", { description: "x" })]);
+    for (const path of ["https://evil.example/x.png", "/api/x) ![y](https://evil", "javascript:alert(1)"]) {
+      await expect(h.performAction("add-attachment-links", { issueId: "t1", files: [{ name: "x", path, image: true }] }, asBoard)).rejects.toThrow(/\/api\//);
+    }
+  });
+});
+
 describe("scheduled list", () => {
   it("lists scheduled backlog tasks soonest first, unreadable ones last", async () => {
     const h = await setup([

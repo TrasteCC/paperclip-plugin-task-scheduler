@@ -10,6 +10,7 @@ import {
   markStarted,
   normalizeLocalInput,
   parseSchedule,
+  insertBeforeSchedule,
   setSchedule,
   startedAt,
   type Schedule,
@@ -345,6 +346,25 @@ const plugin = definePlugin({
         companyId,
         { actorUserId: actor.userId },
       );
+      return { ok: true };
+    });
+
+    // The UI uploads files with the host's attachment route (an upload never wakes the assignee,
+    // unlike a comment) and then links them here, above the schedule lines.
+    ctx.actions.register("add-attachment-links", async (params, { actor }) => {
+      boardOnly(actor.type);
+      const companyId = requireString(actor.companyId ?? params.companyId, "companyId");
+      const issue = await getIssue(ctx, requireString(params.issueId, "issueId"), companyId);
+      const files = Array.isArray(params.files) ? (params.files as Array<Record<string, unknown>>) : [];
+      const lines = files.map((file) => {
+        const path = typeof file.path === "string" ? file.path : "";
+        if (!/^\/api\/[\w\-./]+$/.test(path)) throw new Error("Attachment path must be a Paperclip /api/ path");
+        const name = String(file.name ?? "").replace(/[[\]\r\n]/g, " ").trim() || "file";
+        return `- ${file.image === true ? "!" : ""}[${name}](${path})`;
+      });
+      if (lines.length === 0) return { ok: true };
+      const description = insertBeforeSchedule(issue.description, ["**Attachments**", "", ...lines].join("\n"));
+      await ctx.issues.update(issue.id, { description }, companyId, { actorUserId: actor.userId });
       return { ok: true };
     });
 

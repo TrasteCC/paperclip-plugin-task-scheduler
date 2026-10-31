@@ -94,6 +94,20 @@ function XIcon({ size = 15 }: { size?: number }) {
 
 const iconButton: CSSProperties = { ...buttonStyle(), padding: "6px 8px" };
 
+function PaperclipIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7L14 4.5a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4L15.5 7.6" />
+    </svg>
+  );
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // ---------------------------------------------------------------- hooks
 
 function useNow(intervalMs = 30_000): number {
@@ -197,6 +211,7 @@ function StartFields({
 function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onClose: () => void; onDone: () => void }) {
   const create = usePluginAction("create-task");
   const toast = usePluginToast();
+  const nav = useHostNavigation();
   const params = useMemo(() => ({ companyId }), [companyId]);
   const { data: agents } = usePluginData<AgentModel[]>("agent-models", params);
   const [title, setTitle] = useState("");
@@ -208,13 +223,39 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
   const [model, setModel] = useState("");
   const [priority, setPriority] = useState("medium");
   const [saving, setSaving] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const addAttachmentLinks = usePluginAction("add-attachment-links");
 
   const agentId = assignee.startsWith("agent:") ? assignee.slice(6) : null;
   const agent = agents?.find((a) => a.agentId === agentId) ?? null;
   const modelAllowed = agent !== null && MODEL_ADAPTERS.has(agent.adapterType);
   const models = [...new Set((agents ?? []).filter((a) => MODEL_ADAPTERS.has(a.adapterType) && a.model).map((a) => a.model!))].sort();
 
-  async function submit() {
+  /**
+   * Upload with the host's attachment route (the same one its description editor uses). An upload
+   * never wakes the assignee, unlike a comment from the task page. Returns the files that failed.
+   */
+  async function attach(issueId: string): Promise<string[]> {
+    const links: Array<{ name: string; path: string; image: boolean }> = [];
+    const failed: string[] = [];
+    for (const file of files) {
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        const res = await fetch(`/api/companies/${companyId}/issues/${issueId}/attachments`, { method: "POST", body: form, credentials: "include" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const attachment = (await res.json()) as { contentPath: string; contentType: string; originalFilename: string | null };
+        links.push({ name: attachment.originalFilename ?? file.name, path: attachment.contentPath, image: attachment.contentType.startsWith("image/") });
+      } catch (err) {
+        failed.push(`${file.name} (${errorText(err)})`);
+      }
+    }
+    if (links.length > 0) await addAttachmentLinks({ companyId, issueId, files: links });
+    return failed;
+  }
+
+  /** `open`: go to the new task afterwards. */
+  async function submit(open: boolean) {
     setSaving(true);
     try {
       const result = (await create({
@@ -228,9 +269,12 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
         askFirst: askFirst && agentId !== null,
         model: modelAllowed ? model : null,
         priority,
-      })) as { identifier: string | null };
+      })) as { id: string; identifier: string | null };
+      const failed = files.length > 0 ? await attach(result.id) : [];
       toast({ title: `Scheduled ${result.identifier ?? "task"}`, body: `Starts ${start.replace("T", " ")} (${TIMEZONE})`, tone: "success" });
+      if (failed.length > 0) toast({ title: "Some files were not attached", body: failed.join(", "), tone: "warn" });
       onDone();
+      if (open) nav.navigate(`/issues/${result.identifier ?? result.id}`);
     } catch (err) {
       toast({ title: "Could not schedule the task", body: errorText(err), tone: "error" });
     } finally {
@@ -244,7 +288,7 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
         style={stack(14)}
         onSubmit={(event) => {
           event.preventDefault();
-          void submit();
+          void submit(false);
         }}
       >
         <label style={label}>
@@ -253,7 +297,37 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
         </label>
         <div style={label}>
           Description
-          <MarkdownEditor value={description} onChange={setDescription} placeholder="Details, context, links…" bordered />
+          {/* Our own class on the SDK editor's documented contentClassName prop: a taller writing area. */}
+          <style>{`.task-scheduler-description { min-height: 160px; }`}</style>
+          <MarkdownEditor value={description} onChange={setDescription} placeholder="Details, context, links…" contentClassName="task-scheduler-description" bordered />
+        </div>
+        <div style={stack(8)}>
+          <div style={row}>
+            <label style={{ ...buttonStyle(), padding: "5px 10px" }}>
+              <PaperclipIcon /> Attach files
+              <input
+                type="file"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files ?? []);
+                  setFiles((current) => [...current, ...picked]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <span style={muted}>Images show inline in the description.</span>
+          </div>
+          {files.map((file, index) => (
+            <div key={`${file.name}-${index}`} style={{ ...row, justifyContent: "space-between", fontSize: "13px", padding: "4px 8px", border: "1px solid var(--border)", borderRadius: "calc(var(--radius, 8px) - 2px)" }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>{file.name}</span>
+              <span style={muted}>{formatSize(file.size)}</span>
+              <button type="button" aria-label={`Remove ${file.name}`} title="Remove" style={{ ...iconButton, padding: "2px 6px" }} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>
+                <XIcon size={13} />
+              </button>
+            </div>
+          ))}
+          <span style={muted}>Add files here, not on the task page: a comment there wakes the agent right away.</span>
         </div>
         <div style={{ display: "grid", gap: "14px", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <div style={label}>
@@ -298,6 +372,9 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
         <div style={{ ...row, justifyContent: "flex-end" }}>
           <button type="button" style={buttonStyle()} onClick={onClose}>
             Cancel
+          </button>
+          <button type="button" style={buttonStyle()} disabled={saving || !title.trim() || !start} onClick={() => void submit(true)}>
+            Schedule and open
           </button>
           <button type="submit" style={buttonStyle("primary")} disabled={saving || !title.trim() || !start}>
             {saving ? "Scheduling…" : "Schedule task"}

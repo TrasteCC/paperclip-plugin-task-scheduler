@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clearSchedule,
+  insertBeforeSchedule,
   formatLocal,
   markDeclined,
   markInvalid,
@@ -116,5 +117,18 @@ describe("normalizeLocalInput", () => {
     expect(normalizeLocalInput("2026-02-30T09:00")).toBeNull();
     expect(normalizeLocalInput("2026-11-01T09:00Z")).toBeNull();
     expect(normalizeLocalInput(42)).toBeNull();
+  });
+});
+
+describe("insertBeforeSchedule", () => {
+  it("keeps the schedule lines last", () => {
+    expect(insertBeforeSchedule("Body\n\nstart-at: 2026-11-02 09:00\nask-first: yes", "**Attachments**")).toBe(
+      "Body\n\n**Attachments**\n\nstart-at: 2026-11-02 09:00\nask-first: yes",
+    );
+  });
+
+  it("appends when there is no schedule", () => {
+    expect(insertBeforeSchedule("Body\n", "**Attachments**")).toBe("Body\n\n**Attachments**");
+    expect(insertBeforeSchedule(null, "**Attachments**")).toBe("**Attachments**");
   });
 });

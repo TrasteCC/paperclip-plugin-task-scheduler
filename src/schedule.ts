@@ -152,6 +152,18 @@ export function setSchedule(description: string | null | undefined, startLocal: 
   return lines.join("\n");
 }
 
+/** Insert `block` right before the `start-at:` line, so the schedule stays last; append it when there is none. */
+export function insertBeforeSchedule(description: string | null | undefined, block: string): string {
+  const lines = splitLines(description);
+  const index = findLine(lines, "start-at");
+  if (index < 0) {
+    while (lines.length > 0 && lines[lines.length - 1].trim() === "") lines.pop();
+    return [...lines, ...(lines.length > 0 ? [""] : []), block].join("\n");
+  }
+  lines.splice(index, 0, ...block.split("\n"), "");
+  return lines.join("\n");
+}
+
 /** Remove every `start-at:` and `ask-first:` line outside code blocks. */
 export function clearSchedule(description: string): string {
   let lines = splitLines(description);
