@@ -72,7 +72,7 @@ Attach them while you schedule. Images show inline in the task, and nothing wake
 </td>
 <td align="center">
 <h3>🤖 Agents schedule too</h3>
-Any agent can create one with the normal issues API, or with the <code>schedule-task</code> tool.
+A bundled Paperclip skill teaches them how. They create one with the normal issues API or the <code>schedule-task</code> tool.
 </td>
 <td align="center">
 <h3>🧠 Model per task</h3>
@@ -124,8 +124,24 @@ starts its tasks. The Scheduled page shows a warning when the switch is off.
 
 The plugin asks to read and update issues, add comments and confirmation
 cards, read agents and wake them, and keep its own state. It also registers
-one scheduled job, one agent tool, and the page, sidebar, toolbar button and
-dashboard widget slots. The full list is in [`src/manifest.ts`](src/manifest.ts).
+one scheduled job, one agent tool, one managed skill, and the page, sidebar,
+toolbar button and dashboard widget slots. The full list is in
+[`src/manifest.ts`](src/manifest.ts).
+
+**Teach your agents.** Once a company is enabled, the plugin adds a
+**Scheduled tasks** skill to that company's Skills library. Attach it to every
+agent that should be able to schedule work, from the agent's Skills tab or
+with the API:
+
+```bash
+curl -X POST "$PAPERCLIP_URL/api/agents/<agent-id>/skills/sync" \
+  -H "Authorization: Bearer $PAPERCLIP_BOARD_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "add", "desiredSkills": ["plugin/traste-task-scheduler/scheduled-tasks"]}'
+```
+
+`add` keeps the agent's other skills. Attach it to new agents when you create
+them.
 
 ## 🚀 How to use it
 
@@ -215,18 +231,10 @@ curl -X POST "$PAPERCLIP_API_URL/api/companies/$COMPANY_ID/issues" \
   }'
 ```
 
-A short section in an agent's instructions is enough to teach it:
-
-```markdown
-## Scheduling work for later
-When a task asks for work at a later time ("have the maintenance agent fix
-this in 2 days"), don't wait: create the task now with "status": "backlog",
-its assignee set, and as the last line of the description
-`start-at: YYYY-MM-DD HH:MM` (Europe/Madrid). Add `ask-first: yes` when a
-human must confirm at that moment. Don't comment on the scheduled task
-afterwards, because a comment wakes its assignee. Then finish your own task
-as usual.
-```
+Agents learn all of this from the **Scheduled tasks** skill, whose source is
+[`skill/SKILL.md`](skill/SKILL.md). The plugin restores that text in every
+company each time it starts, so change the file in the repo rather than in
+Paperclip.
 
 Agents that get plugin tools can also call **`schedule-task`**:
 
@@ -268,6 +276,7 @@ clocks go back uses the second occurrence.
 | `toolbarButton` on issues | The button under the task header. Paperclip's chat-style task page hides the tab strip, so a `detailTab` would never show. |
 | `dashboardWidget` | The **Scheduled** card. |
 | Tool `schedule-task` | Creates a scheduled task for an agent. |
+| Managed skill `scheduled-tasks` | Added to each enabled company's Skills library on the first job run after the plugin starts, and reset to the plugin's text if the stored copy differs. |
 | File upload | The dialog uploads each file with `POST /api/companies/:id/issues/:id/attachments`, the route Paperclip's own editor uses, then links it in the description. An upload doesn't wake the agent. |
 
 The plugin relies on how Paperclip treats backlog tasks. Assigning an agent to
@@ -288,8 +297,8 @@ the Paperclip you run.
 ```bash
 pnpm install
 pnpm typecheck
-pnpm test        # schedule parsing (incl. daylight-saving edges), the worker and the agent tool
-pnpm build
+pnpm test        # schedule parsing (incl. daylight-saving edges), the worker, the agent tool and the skill
+pnpm build       # also regenerates src/skill.ts from skill/SKILL.md (pnpm sync-skill)
 ```
 
 To update an installed copy, replace `package.json` and `dist/`, then run
@@ -302,6 +311,8 @@ only looks at the plugin registry, so it can pass while the job is stopped.
 - The time zone is fixed to Europe/Madrid (`TIMEZONE` in `src/schedule.ts`).
 - The date shows as a line in the task description, because Paperclip has no
   date field for tasks and plugins can't add one.
+- The skill reaches an agent only once it's attached to that agent. Paperclip
+  has no switch for all agents, and a plugin can't change existing agents.
 - A comment from a person on a scheduled task wakes its agent at once. Add
   context and files in the dialog or the description instead.
 - File upload uses Paperclip's attachment route, which isn't part of the plugin

@@ -1,6 +1,6 @@
 import { definePlugin, runWorker, type PluginContext } from "@paperclipai/plugin-sdk";
 import type { Agent, Issue, IssuePriority } from "@paperclipai/shared";
-import manifest, { JOB_KEY, MODEL_ADAPTERS, TOOL_NAME } from "./manifest.js";
+import manifest, { JOB_KEY, MODEL_ADAPTERS, SKILL_KEY, TOOL_NAME } from "./manifest.js";
 import {
   TIMEZONE,
   clearSchedule,
@@ -180,11 +180,29 @@ async function enabledFor(ctx: PluginContext, companyId: string): Promise<boolea
   }
 }
 
+/** Companies whose skill was synced by this worker (each worker start re-checks once). */
+const skillSynced = new WeakMap<PluginContext, Set<string>>();
+
+/** Install the managed skill, and restore the plugin's text if the stored copy drifted from it. */
+async function syncSkill(ctx: PluginContext, companyId: string): Promise<void> {
+  const synced = skillSynced.get(ctx) ?? new Set<string>();
+  skillSynced.set(ctx, synced);
+  if (synced.has(companyId)) return;
+  try {
+    const resolution = await ctx.skills.managed.reconcile(SKILL_KEY, companyId);
+    if (resolution.defaultDrift?.changedFiles?.length) await ctx.skills.managed.reset(SKILL_KEY, companyId);
+    synced.add(companyId);
+  } catch (err) {
+    ctx.logger.warn("Could not sync the scheduled-tasks skill", { companyId, error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 /** One scheduler pass over every enabled company. One failing issue does not block the others. */
 export async function startDueTasks(ctx: PluginContext, now = Date.now()): Promise<void> {
   const failures: string[] = [];
   for (const company of await ctx.companies.list({ limit: PAGE_SIZE })) {
     if (!(await enabledFor(ctx, company.id))) continue;
+    await syncSkill(ctx, company.id);
     let cached: Promise<Map<string, Agent>> | null = null;
     const agents = () => (cached ??= agentsById(ctx, company.id));
     for (const issue of await listBacklog(ctx, company.id)) {

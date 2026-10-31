@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { createTestHarness } from "@paperclipai/plugin-sdk/testing";
 import type { Agent, Company, Issue } from "@paperclipai/shared";
-import manifest, { JOB_KEY, TOOL_NAME } from "../src/manifest.js";
+import manifest, { JOB_KEY, SKILL_KEY, TOOL_NAME } from "../src/manifest.js";
+import { SKILL_MARKDOWN } from "../src/skill.js";
 import plugin, { startDueTasks, type IssueScheduleData, type ScheduledData } from "../src/worker.js";
 
 const COMPANY = "company-1";
@@ -49,6 +51,21 @@ describe("manifest", () => {
     expect(manifest.jobs).toEqual([expect.objectContaining({ jobKey: JOB_KEY, schedule: "* * * * *" })]);
     expect(manifest.tools?.map((t) => t.name)).toEqual([TOOL_NAME]);
     expect(manifest.ui?.slots?.map((s) => s.type)).toEqual(["page", "sidebar", "toolbarButton", "dashboardWidget"]);
+  });
+});
+
+describe("managed skill", () => {
+  it("ships skill/SKILL.md as the managed skill (run pnpm sync-skill after editing it)", () => {
+    expect(SKILL_MARKDOWN).toBe(readFileSync(new URL("../skill/SKILL.md", import.meta.url), "utf8"));
+    expect(manifest.capabilities).toContain("skills.managed");
+    expect(manifest.skills).toEqual([expect.objectContaining({ skillKey: SKILL_KEY, markdown: SKILL_MARKDOWN })]);
+  });
+
+  it("installs the skill in an enabled company on the first job run", async () => {
+    const h = await setup();
+    expect((await h.ctx.skills.managed.get(SKILL_KEY, COMPANY)).status).toBe("missing");
+    await h.runJob(JOB_KEY);
+    expect((await h.ctx.skills.managed.get(SKILL_KEY, COMPANY)).status).toBe("resolved");
   });
 });
 

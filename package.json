@@ -1,10 +1,11 @@
 {
   "name": "paperclip-plugin-task-scheduler",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "type": "module",
   "description": "Schedule one-off Paperclip tasks to start at a set date and time",
   "scripts": {
-    "build": "node ./esbuild.config.mjs",
+    "sync-skill": "node ./scripts/sync-skill.mjs",
+    "build": "node ./scripts/sync-skill.mjs && node ./esbuild.config.mjs",
     "test": "vitest run --config ./vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },

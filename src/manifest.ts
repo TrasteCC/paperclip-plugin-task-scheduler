@@ -1,15 +1,17 @@
 import type { PaperclipPluginManifestV1 } from "@paperclipai/plugin-sdk";
+import { SKILL_MARKDOWN } from "./skill.js";
 
 export const JOB_KEY = "start-due-tasks";
 export const TOOL_NAME = "schedule-task";
 export const PAGE_ROUTE = "scheduled";
+export const SKILL_KEY = "scheduled-tasks";
 /** Adapters that honor a per-issue model override (same set as the host's New Issue dialog). */
 export const MODEL_ADAPTERS = new Set(["claude_local", "codex_local", "opencode_local"]);
 
 const manifest: PaperclipPluginManifestV1 = {
   id: "traste.task-scheduler",
   apiVersion: 1,
-  version: "0.1.4",
+  version: "0.2.0",
   displayName: "Scheduled Tasks",
   description: "Schedule one-off tasks to start at a set date and time. The assigned agent is only woken when that time comes.",
   author: "traste",
@@ -28,6 +30,7 @@ const manifest: PaperclipPluginManifestV1 = {
     "plugin.state.write",
     "jobs.schedule",
     "agent.tools.register",
+    "skills.managed",
     "ui.page.register",
     "ui.sidebar.register",
     "ui.detailTab.register",
@@ -57,6 +60,15 @@ const manifest: PaperclipPluginManifestV1 = {
       displayName: "Start due tasks",
       description: "Every minute: start backlog tasks whose start-at time has come.",
       schedule: "* * * * *",
+    },
+  ],
+  // Installed into each enabled company's skills library; attach it to agents to teach them the convention.
+  skills: [
+    {
+      skillKey: SKILL_KEY,
+      displayName: "Scheduled tasks",
+      description: "Create one-off tasks that start at a set date and time; the assignee is only woken then.",
+      markdown: SKILL_MARKDOWN,
     },
   ],
   tools: [
