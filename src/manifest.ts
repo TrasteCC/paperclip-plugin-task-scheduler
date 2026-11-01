@@ -11,7 +11,7 @@ export const MODEL_ADAPTERS = new Set(["claude_local", "codex_local", "opencode_
 const manifest: PaperclipPluginManifestV1 = {
   id: "traste.task-scheduler",
   apiVersion: 1,
-  version: "0.2.0",
+  version: "0.2.1",
   displayName: "Scheduled Tasks",
   description: "Schedule one-off tasks to start at a set date and time. The assigned agent is only woken when that time comes.",
   author: "traste",

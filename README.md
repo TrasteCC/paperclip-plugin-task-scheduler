@@ -68,7 +68,7 @@ An optional confirmation card at the start time, so you decide before the agent 
 <tr>
 <td align="center">
 <h3>📎 Files and images</h3>
-Attach them while you schedule. Images show inline in the task, and nothing wakes the agent early.
+Attach them while you schedule, or paste and drop images into the description. Images show inline in the task, and nothing wakes the agent early.
 </td>
 <td align="center">
 <h3>🤖 Agents schedule too</h3>
@@ -258,7 +258,9 @@ confirmation, or `start-at-invalid:` for a date it can't read. The line stays
 as history.
 
 Files are normal Paperclip attachments on the task. The plugin lists them
-under **Attachments** in the description, just above the `start-at` line.
+under **Attachments** in the description, just above the `start-at` line. An
+image pasted or dropped into the description stays where you put it, and
+Paperclip attaches it to the task when the task is created.
 
 The plugin's own state holds only the id of a pending confirmation card, and
 its configuration holds `{ "enabled": true }` for each company.
@@ -278,6 +280,7 @@ clocks go back uses the second occurrence.
 | Tool `schedule-task` | Creates a scheduled task for an agent. |
 | Managed skill `scheduled-tasks` | Added to each enabled company's Skills library on the first job run after the plugin starts, and reset to the plugin's text if the stored copy differs. |
 | File upload | The dialog uploads each file with `POST /api/companies/:id/issues/:id/attachments`, the route Paperclip's own editor uses, then links it in the description. An upload doesn't wake the agent. |
+| Pasted images | The description editor gets an `imageUploadHandler`, like the one in Paperclip's own new-task dialog. It uploads the image as a draft (`POST /api/companies/:id/assets/images`), and Paperclip attaches drafts to the task when the same person creates it. |
 
 The plugin relies on how Paperclip treats backlog tasks. Assigning an agent to
 a backlog task doesn't wake it, and an agent's inbox lists only todo, in
@@ -318,6 +321,9 @@ only looks at the plugin registry, so it can pass while the job is stopped.
 - File upload uses Paperclip's attachment route, which isn't part of the plugin
   SDK. If a Paperclip release changes it, uploads stop working and scheduling
   carries on.
+- Image paste uses an editor prop, `imageUploadHandler`, that the SDK doesn't
+  declare. If a release stops passing it to the editor, pasted images are
+  ignored and the rest of the dialog keeps working.
 - A model override can only be set when the task is created, and only for
   `claude_local`, `codex_local` and `opencode_local` agents.
 - Tasks start within about a minute of their time.

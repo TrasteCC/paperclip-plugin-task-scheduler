@@ -1,6 +1,6 @@
 {
   "name": "paperclip-plugin-task-scheduler",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Schedule one-off Paperclip tasks to start at a set date and time",
   "scripts": {

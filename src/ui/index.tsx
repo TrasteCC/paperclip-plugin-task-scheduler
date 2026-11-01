@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import {
   AssigneePicker,
   MarkdownEditor,
@@ -8,6 +8,7 @@ import {
   usePluginAction,
   usePluginData,
   usePluginToast,
+  type MarkdownEditorProps,
   type PluginHostContext,
   type PluginPageProps,
   type PluginSidebarProps,
@@ -208,6 +209,13 @@ function StartFields({
   );
 }
 
+/**
+ * The host editor behind the SDK's MarkdownEditor also takes `imageUploadHandler`, which its own
+ * dialogs use for pasted and dropped images. The SDK type leaves it out. A host that stopped passing
+ * it through would only lose image paste; the rest of the editor keeps working.
+ */
+const DescriptionEditor = MarkdownEditor as ComponentType<MarkdownEditorProps & { imageUploadHandler?: (file: File) => Promise<string> }>;
+
 function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onClose: () => void; onDone: () => void }) {
   const create = usePluginAction("create-task");
   const toast = usePluginToast();
@@ -252,6 +260,20 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
     }
     if (links.length > 0) await addAttachmentLinks({ companyId, issueId, files: links });
     return failed;
+  }
+
+  /**
+   * A pasted or dropped image, stored the way the host's own new-task dialog stores it: a draft
+   * image that Paperclip attaches to the task when the same user creates it.
+   */
+  async function uploadImage(file: File): Promise<string> {
+    // A pasted file can be released once the paste event ends, so copy its bytes first.
+    const form = new FormData();
+    form.append("namespace", "issues/drafts");
+    form.append("file", new File([await file.arrayBuffer()], file.name, { type: file.type }));
+    const res = await fetch(`/api/companies/${companyId}/assets/images`, { method: "POST", body: form, credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return ((await res.json()) as { contentPath: string }).contentPath;
   }
 
   /** `open`: go to the new task afterwards. */
@@ -299,7 +321,14 @@ function NewTaskDialog({ companyId, onClose, onDone }: { companyId: string; onCl
           Description
           {/* Our own class on the SDK editor's documented contentClassName prop: a taller writing area. */}
           <style>{`.task-scheduler-description { min-height: 160px; }`}</style>
-          <MarkdownEditor value={description} onChange={setDescription} placeholder="Details, context, links…" contentClassName="task-scheduler-description" bordered />
+          <DescriptionEditor
+            value={description}
+            onChange={setDescription}
+            placeholder="Details, context, links… Paste or drop images here."
+            contentClassName="task-scheduler-description"
+            imageUploadHandler={uploadImage}
+            bordered
+          />
         </div>
         <div style={stack(8)}>
           <div style={row}>
