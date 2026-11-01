@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/paperclip-plugin-task-scheduler"><img src="https://img.shields.io/npm/v/paperclip-plugin-task-scheduler?color=00aaff" alt="npm version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
   <a href="https://github.com/paperclipai/paperclip"><img src="https://img.shields.io/badge/Paperclip-%E2%89%A5%202026.1023.0-3b6d11" alt="Paperclip 2026.1023.0 or later" /></a>
   <img src="https://img.shields.io/badge/starts%20within-1%20min-534ab7" alt="Starts within one minute" />
@@ -104,6 +105,14 @@ Recurring work keeps running on Paperclip's routines. This plugin covers the one
 ## 📦 Install
 
 Scheduled Tasks needs Paperclip 2026.1023.0 or later.
+
+**From npm** (recommended):
+
+```bash
+paperclipai plugin install paperclip-plugin-task-scheduler
+```
+
+**From source:**
 
 ```bash
 git clone https://github.com/TrasteCC/paperclip-plugin-task-scheduler.git
