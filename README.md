@@ -154,7 +154,7 @@ them.
    wakes the agent before the start time.
 
 <p align="center">
-  <img src="docs/new-task.webp" width="438" alt="New scheduled task dialog: title, description, two attached files, assignee, project, start time in Europe/Madrid, ask first, model, priority, and the Schedule and open button">
+  <img src="docs/new-task.webp" width="438" alt="New scheduled task dialog: title, a description with a pasted screenshot, an attached file, assignee, project, start time in Europe/Madrid, ask first, model, priority, and the Schedule and open button">
 </p>
 
 Put files and context in the dialog rather than in a comment on the task page.
