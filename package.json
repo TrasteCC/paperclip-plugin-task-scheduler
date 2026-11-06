@@ -5,7 +5,8 @@
   "description": "Schedule one-off Paperclip tasks to start at a set date and time",
   "scripts": {
     "sync-skill": "node ./scripts/sync-skill.mjs",
-    "build": "node ./scripts/sync-skill.mjs && node ./esbuild.config.mjs",
+    "build": "node ./scripts/sync-skill.mjs && node ./esbuild.config.mjs && node ./scripts/package-agensi.mjs --check",
+    "agensi": "node ./scripts/package-agensi.mjs",
     "test": "vitest run --config ./vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },
